@@ -33,6 +33,9 @@ const char *PARAM_MESSAGE = "window";
 int window = -1; // FIRST == 1; SECOND == 2
 int action = -1; // UP == 1; DOWN == 2; STOP == 3
 
+unsigned long previousMillis = 0;
+unsigned long interval = 30000;
+
 // -----------------------------------------------------------------------------
 // Wifi
 // -----------------------------------------------------------------------------
@@ -62,6 +65,19 @@ void wifiSetup()
 
   // Setup Firmware update over the air (OTA)
   setup_OTA();
+}
+
+void wifiReconnect()
+{
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - previousMillis >= interval)
+  {
+    Serial.println("Reconnecting to WiFi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    previousMillis = currentMillis;
+  }
 }
 
 void serverSetup()
@@ -136,7 +152,7 @@ void serverSetup()
                 window = 0;
               }
               request->send(200, "text/plain", "Hello, GET: " + message); });
-              
+
   server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send(200, "text/plain", String(ESP.getFreeHeap())); });
 
@@ -249,8 +265,15 @@ void processRequest()
 
 void loop()
 {
-  // Check for OTA updates
-  ArduinoOTA.handle();
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    wifiReconnect();
+  }
+  else
+  {
+    // Check for OTA updates
+    ArduinoOTA.handle();
 
-  processRequest();
+    processRequest();
+  }
 }
