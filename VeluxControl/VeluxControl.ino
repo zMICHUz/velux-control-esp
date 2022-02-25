@@ -5,7 +5,9 @@
 #include <ESP8266WiFi.h>
 #endif
 #include <ESPAsyncWebServer.h>
+#include <ArduinoOTA.h>
 
+#include "ota.h"
 #include "credentials.h"
 
 AsyncWebServer server(80);
@@ -28,8 +30,8 @@ IPAddress subnet(255, 255, 255, 0);
 
 const char *PARAM_MESSAGE = "window";
 
-int window = 0; // FIRST == 1; SECOND == 2
-int action = 0; // UP == 1; DOWN == 2; STOP == 3
+int window = -1; // FIRST == 1; SECOND == 2
+int action = -1; // UP == 1; DOWN == 2; STOP == 3
 
 // -----------------------------------------------------------------------------
 // Wifi
@@ -57,6 +59,9 @@ void wifiSetup()
 
   // Connected!
   Serial.printf("[WIFI] STATION Mode, SSID: %s, IP address: %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+
+  // Setup Firmware update over the air (OTA)
+  setup_OTA();
 }
 
 void serverSetup()
@@ -86,7 +91,7 @@ void serverSetup()
                 window = 0;
               }
               request->send(200, "text/plain", "Hello, GET: " + message); });
-  
+
   server.on("/down", HTTP_GET, [](AsyncWebServerRequest *request)
             {
               String message;
@@ -109,7 +114,7 @@ void serverSetup()
                 window = 0;
               }
               request->send(200, "text/plain", "Hello, GET: " + message); });
-    server.on("/stop", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/stop", HTTP_GET, [](AsyncWebServerRequest *request)
             {
               String message;
               if (request->hasParam(PARAM_MESSAGE)) {
@@ -178,7 +183,7 @@ void setup()
   serverSetup();
 }
 
-void loop()
+void processRequest()
 {
   if (window == 0)
   {
@@ -193,20 +198,20 @@ void loop()
     Serial.print("FIRST --> ");
     Serial.println(action);
     window = 0;
-    
+
     switch (action)
     {
-      case 1:
-        digitalWrite(FIRST_CONTROLLER_PIN_UP, HIGH);
-        break;
-      
-      case 2:
-        digitalWrite(FIRST_CONTROLLER_PIN_DOWN, HIGH);
-        break;
-      
-      default:
-        digitalWrite(FIRST_CONTROLLER_PIN_STOP, HIGH);
-        break;
+    case 1:
+      digitalWrite(FIRST_CONTROLLER_PIN_UP, HIGH);
+      break;
+
+    case 2:
+      digitalWrite(FIRST_CONTROLLER_PIN_DOWN, HIGH);
+      break;
+
+    default:
+      digitalWrite(FIRST_CONTROLLER_PIN_STOP, HIGH);
+      break;
     }
 
     digitalWrite(LED_BUILTIN, LOW);
@@ -221,20 +226,28 @@ void loop()
 
     switch (action)
     {
-      case 1:
-        digitalWrite(SECOND_CONTROLLER_PIN_UP, HIGH);
-        break;
-      
-      case 2:
-        digitalWrite(SECOND_CONTROLLER_PIN_DOWN, HIGH);
-        break;
-      
-      default:
-        digitalWrite(SECOND_CONTROLLER_PIN_STOP, HIGH);
-        break;
+    case 1:
+      digitalWrite(SECOND_CONTROLLER_PIN_UP, HIGH);
+      break;
+
+    case 2:
+      digitalWrite(SECOND_CONTROLLER_PIN_DOWN, HIGH);
+      break;
+
+    default:
+      digitalWrite(SECOND_CONTROLLER_PIN_STOP, HIGH);
+      break;
     }
 
     digitalWrite(LED_BUILTIN, LOW);
     delay(1000);
   }
+}
+
+void loop()
+{
+  // Check for OTA updates
+  ArduinoOTA.handle();
+
+  processRequest();
 }
