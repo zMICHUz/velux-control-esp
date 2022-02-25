@@ -136,6 +136,9 @@ void serverSetup()
                 window = 0;
               }
               request->send(200, "text/plain", "Hello, GET: " + message); });
+              
+  server.on("/heap", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(200, "text/plain", String(ESP.getFreeHeap())); });
 
   // Start the server
   server.begin();
